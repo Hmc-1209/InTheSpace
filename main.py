@@ -2,6 +2,7 @@ import pygame
 import os
 import random
 import pickle
+import json
 from pygame import mixer
 
 from GlobalVariables import screen_height, screen_width, scroll_thresh
@@ -18,7 +19,7 @@ pygame.display.set_caption('InTheSpace')
 
 # Setting frame rate
 clock = pygame.time.Clock()
-FPS = 60
+FPS = 70
 
 # ------------------------ Game variables ------------------------
 GRAVITY = 0.75
@@ -37,6 +38,10 @@ level_complete = False
 pickle_in = open(f'Levels/levels_data/level{LEVEL}_data', 'rb')
 COLS = len(pickle.load(pickle_in)[0])
 pickle_in.close()
+
+particle1_group = []
+laser_group = pygame.sprite.Group()
+toggle_group = pygame.sprite.Group()
 
 # Defining colors and fonts
 RED = (255, 0, 0)
@@ -76,16 +81,17 @@ def circle_surf(radius, color):
 
 def particles():
     for particle in particle1_group:
-        particle[0][0] += particle[1][0]
+        particle[0][0] += particle[1][0] + screen_scroll
         particle[0][1] += particle[1][1]
         particle[2] -= 0.1
         particle[1][1] += 0.2
+        particle[3] += screen_scroll
 
         if not (particle[0][0] < 0 or particle[0][0] > SCREEN_WIDTH):
-            pygame.draw.circle(screen, (255, 140, 0), [int(particle[0][0]-screen_scroll), int(particle[0][1])], int(particle[2]))
+            pygame.draw.circle(screen, (255, 140, 0), [int(particle[0][0]), int(particle[0][1])], int(particle[2]))
 
         radius = particle[2] * 2
-        screen.blit(circle_surf(radius, (60, 20, 20)), (int(particle[0][0] - radius-screen_scroll), int(particle[0][1] - radius)),
+        screen.blit(circle_surf(radius, (60, 20, 20)), (int(particle[0][0] - radius), int(particle[0][1] - radius)),
                     special_flags=pygame.BLEND_RGB_ADD)
         if particle[2] <= 0 or particle[0][0] < 0 or particle[0][0] > SCREEN_WIDTH:
             particle1_group.remove(particle)
@@ -132,10 +138,6 @@ class Character(pygame.sprite.Sprite):
             self.frameIndex += 1
             if self.frameIndex >= len(self.animationsList[self.action]):
                 self.frameIndex = 0
-                # if self.action == 3:
-                #     self.frameIndex -= 1
-                # else:
-                #     self.frameIndex = 0
 
     def update_action(self, new_action):
         if new_action != self.action:
@@ -192,6 +194,12 @@ class Character(pygame.sprite.Sprite):
                     self.in_air = False
                     dy = block[1].top - self.rect.bottom
 
+        for toggle in toggle_group:
+            if toggle.rect.colliderect(self.rect.x, self.rect.y, self.image.get_width(), self.image.get_height()) and not toggle.is_toggled:
+                delete_laser(toggle.pointX, toggle.pointY)
+                toggle.is_toggled = True
+                toggle.image = toggle.imgs[1]
+
         self.rect.x += dx
         self.rect.y += dy
 
@@ -211,10 +219,76 @@ class Character(pygame.sprite.Sprite):
 
 
 class Laser(pygame.sprite.Sprite):
-    pass
+    def __init__(self, x, y, dir):
+        pygame.sprite.Sprite.__init__(self)
+        self.x = x
+        self.y = y
+        self.pointX = x / BLOCK_SIZE
+        self.pointY = y / BLOCK_SIZE
+        self.imgs = []
+        self.frames = random.randint(0, 2)
+        self.update_time = pygame.time.get_ticks()
+        for i in range(3):
+            if dir == 0:
+                self.imgs.append(pygame.transform.scale(
+                    pygame.image.load(f"imgs/laser/horizontal/{i}.png"), (40, 40)).convert_alpha())
+            else:
+                self.imgs.append(pygame.transform.scale(
+                    pygame.image.load(f"imgs/laser/vertical/{i}.png"), (40, 40)).convert_alpha())
+        self.image = self.imgs[self.frames]
+        self.rect = self.image.get_rect()
+        self.rect.midtop = (x + BLOCK_SIZE // 2, y + (BLOCK_SIZE - self.image.get_height()) // 2)
+
+    def update(self):
+        Animation_Cooldown = 150
+        self.image = self.imgs[self.frames]
+        if pygame.time.get_ticks() - self.update_time > Animation_Cooldown:
+            self.update_time = pygame.time.get_ticks()
+            self.frames += 1
+            if self.frames >= 3:
+                self.frames = 0
+        self.rect.x += screen_scroll
+
+    def draw(self):
+        screen.blit(self.image, self.rect)
 
 
-particle1_group = []
+class Toggle(pygame.sprite.Sprite):
+    def __init__(self, x, y, related_lasers):
+        pygame.sprite.Sprite.__init__(self)
+        self.x = x * BLOCK_SIZE
+        self.y = y * BLOCK_SIZE
+        self.pointX = x
+        self.pointY = y
+        self.is_toggled = False
+        self.related_lasers = related_lasers
+        self.imgs = [pygame.transform.scale(pygame.image.load("imgs/toggles/0.png").convert_alpha(), (40, 40)),
+                     pygame.transform.scale(pygame.image.load("imgs/toggles/1.png").convert_alpha(), (40, 40))]
+        self.image = self.imgs[0]
+        self.rect = self.image.get_rect()
+        self.rect.midtop = (self.x + BLOCK_SIZE // 2, self.y + (BLOCK_SIZE - self.image.get_height()) // 2)
+
+    def update(self):
+        self.rect.x += screen_scroll
+
+    def draw(self):
+        screen.blit(self.image, self.rect)
+
+
+def delete_laser(toggle_pointX, toggle_pointY):
+    with open(f"Levels/levels_laser/level{LEVEL}.json", "r") as f:
+        points = json.load(f)
+        delete = []
+        for point in points:
+            if point[1] == [toggle_pointY, toggle_pointX]:
+                for i in range(2, len(point)):
+                    delete.append(point[i])
+        for i in delete:
+            for laser in laser_group:
+                print(laser.pointY, laser.pointX, i[0], i[1])
+                if [laser.pointY, laser.pointX] == [i[0], i[1]]:
+                    laser_group.remove(laser)
+                print()
 
 
 class Map:
@@ -245,14 +319,26 @@ class Map:
                     elif block == 25:  # Setting player position values
                         self.playerX = x * BLOCK_SIZE
                         self.playerY = y * BLOCK_SIZE
-                    elif block == 27 or block == 28:
-                        laser = Laser()
+
+        with open(f"Levels/levels_laser/level{LEVEL}.json", "r") as f:
+            points = json.load(f)
+            for i in points:
+                points_list = []
+                for j in range(2, len(i)):
+                    laser = Laser(i[j][1] * BLOCK_SIZE, i[j][0] * BLOCK_SIZE, i[0])
+                    laser_group.add(laser)
+                    points_list.append(i[j])
+                toggle = Toggle(i[1][1], i[1][0], points_list)
+                toggle_group.add(toggle)
 
         # Generating player and return
         player = Character(self.playerX, self.playerY, 1, 7, 'player', 5)
         return player
 
     def draw(self):
+        for laser in laser_group:
+            laser.update()
+            laser.draw()
         for block in self.obstacle_list:
             block[1][0] += screen_scroll
             screen.blit(block[0], block[1])
@@ -263,7 +349,7 @@ class Map:
             block[1][0] += screen_scroll
             screen.blit(block[0], block[1])
             if 0 < block[1][0] < SCREEN_WIDTH:
-                particle1_group.append([[block[1][0]+20, block[1][1]+25], [random.randint(10, 30) / 10 - 2, -1], random.randint(2, 4)])
+                particle1_group.append([[block[1][0]+20, block[1][1]+25], [random.randint(10, 30) / 10 - 2, -1], random.randint(1, 4), block[1][0]+20])
         particles()
 
 
@@ -281,6 +367,9 @@ while IN_THE_SPACE:
     bg_scroll -= screen_scroll
     player.draw()
     player.update()
+    for toggle in toggle_group:
+        toggle.update()
+        toggle.draw()
 
     for event in pygame.event.get():
         # Quit game

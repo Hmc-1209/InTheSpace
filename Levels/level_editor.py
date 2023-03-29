@@ -65,7 +65,7 @@ def reset_map():
 laser_select_list = []
 
 
-def laser_bind_add():
+def laser_bind_add(dir):
     if os.path.exists(f"levels_laser/level{LEVEL}.json"):
         with open(f"levels_laser/level{LEVEL}.json", "r") as f:
             laser_existing_list = json.load(f)
@@ -75,15 +75,15 @@ def laser_bind_add():
                 if l[0] == list(toggle_point):
                     is_saved = x
             if is_saved >= 0:
-                laser_existing_list[is_saved] = [list(toggle_point)] + laser_select_list
+                laser_existing_list[is_saved] = [dir] + [list(toggle_point)] + laser_select_list
                 json.dump(laser_existing_list, f)
             else:
-                laser_existing_list.append([list(toggle_point)] + laser_select_list)
+                laser_existing_list.append([dir] + [list(toggle_point)] + laser_select_list)
                 json.dump(laser_existing_list, f)
     else:
         with open(f"levels_laser/level{LEVEL}.json", "w") as f:
             laser_existing_list = []
-            laser_existing_list.append([list(toggle_point)] + laser_select_list)
+            laser_existing_list.append([dir] + [list(toggle_point)] + laser_select_list)
             json.dump(laser_existing_list, f)
     pickle_out = open(f'levels_data/level{LEVEL}_data', 'wb')
     print(len(map_save(map_data)[0]))
@@ -97,8 +97,8 @@ def laser_bind_delete():
     with open(f"levels_laser/level{LEVEL}.json", "w") as f:
         pos = -1
         for x, l in enumerate(laser_existing_list):
-            print(l[0], list(toggle_point))
-            if l[0] == list(toggle_point):
+            print(l[1], list(toggle_point))
+            if l[1] == list(toggle_point):
                 poa = x
         laser_existing_list.remove(laser_existing_list[pos])
         print(laser_existing_list)
@@ -282,7 +282,12 @@ while run:
     # Laser
     if LASER_SELECTING:
         if laser_confirm_btn.draw():
-            laser_bind_add()
+            x = laser_select_list[0][0]
+            y = laser_select_list[0][1]
+            if map_data[x][y] == 27:
+                laser_bind_add(0)
+            elif map_data[x][y] == 28:
+                laser_bind_add(1)
             LASER_SELECTING = False
         if laser_cancel_btn.draw():
             LASER_SELECTING = False
