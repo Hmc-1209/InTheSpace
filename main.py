@@ -6,6 +6,7 @@ import json
 from pygame import mixer
 
 from GlobalVariables import screen_height, screen_width, scroll_thresh
+from particles import particles
 
 # Initialize the pygame
 pygame.init()
@@ -30,6 +31,7 @@ LEVEL = 1
 scroll_point = scroll_thresh()
 MAX_LEVELS = 2
 screen_scroll = 0
+screen_scroll_player2 = 0
 bg_scroll = 0
 start_game = False
 start_intro = False
@@ -42,6 +44,7 @@ pickle_in.close()
 particle1_group = []
 laser_group = pygame.sprite.Group()
 toggle_group = pygame.sprite.Group()
+player_group = pygame.sprite.Group()
 
 # Defining colors and fonts
 RED = (255, 0, 0)
@@ -51,8 +54,10 @@ BLACK = (0, 0, 0)
 PINK = (235, 65, 54)
 
 # ------------------------ Defining player action variables ------------------------
-moving_left = False
-moving_right = False
+player_moving_left = False
+player_moving_right = False
+player2_moving_left = False
+player2_moving_right = False
 
 
 # ------------------------ Loading map images ------------------------
@@ -69,32 +74,6 @@ for i in range(16):
 pickle_in = open(f'Levels/levels_data/level{LEVEL}_data', 'rb')
 map_data = pickle.load(pickle_in)
 pickle_in.close()
-
-
-# ------------------------ Particles ------------------------
-def circle_surf(radius, color):
-    surf = pygame.Surface((radius * 2, radius * 2))
-    pygame.draw.circle(surf, color, (radius, radius), radius)
-    surf.set_colorkey((0, 0, 0))
-    return surf
-
-
-def particles():
-    for particle in particle1_group:
-        particle[0][0] += particle[1][0] + screen_scroll
-        particle[0][1] += particle[1][1]
-        particle[2] -= 0.1
-        particle[1][1] += 0.2
-        particle[3] += screen_scroll
-
-        if not (particle[0][0] < 0 or particle[0][0] > SCREEN_WIDTH):
-            pygame.draw.circle(screen, (255, 140, 0), [int(particle[0][0]), int(particle[0][1])], int(particle[2]))
-
-        radius = particle[2] * 2
-        screen.blit(circle_surf(radius, (60, 20, 20)), (int(particle[0][0] - radius), int(particle[0][1] - radius)),
-                    special_flags=pygame.BLEND_RGB_ADD)
-        if particle[2] <= 0 or particle[0][0] < 0 or particle[0][0] > SCREEN_WIDTH:
-            particle1_group.remove(particle)
 
 
 # ------------------------ Objects ------------------------
@@ -120,9 +99,9 @@ class Character(pygame.sprite.Sprite):
         animations = ["idle", "move"]
         for animation in animations:
             tmpL = []
-            frames = len(os.listdir(f"imgs/character/player/{animation}"))
+            frames = len(os.listdir(f"imgs/character/{char_type}/{animation}"))
             for f in range(frames-1):
-                img = pygame.image.load(f"imgs/character/player/{animation}/{f}.png")
+                img = pygame.image.load(f"imgs/character/{char_type}/{animation}/{f}.png")
                 img = pygame.transform.scale(img, (int(img.get_width() * scale), int(img.get_height() * scale)))
                 tmpL.append(img)
             self.animationsList.append(tmpL)
@@ -148,7 +127,8 @@ class Character(pygame.sprite.Sprite):
     def update(self):
         self.update_animation()
         if self.is_alive:
-            if moving_left or moving_right:
+            if (self.char_type == 'player' and (player_moving_left or player_moving_right)) or\
+                    (self.char_type == 'player2' and (player2_moving_left or player2_moving_right)):
                 self.update_action(1)
             elif self.in_air:
                 pass
@@ -158,11 +138,11 @@ class Character(pygame.sprite.Sprite):
     def move(self):
         dx = dy = 0
         d_screen_scroll = 0
-        if moving_left:
+        if (self.char_type == 'player' and player_moving_left) or (self.char_type == 'player2' and player2_moving_left):
             dx = -self.speed
             self.flip = True
             self.direction = -1
-        if moving_right:
+        if (self.char_type == 'player' and player_moving_right) or (self.char_type == 'player2' and player2_moving_right):
             dx = self.speed
             self.flip = False
             self.direction = 1
@@ -196,9 +176,9 @@ class Character(pygame.sprite.Sprite):
 
         for toggle in toggle_group:
             if toggle.rect.colliderect(self.rect.x, self.rect.y, self.image.get_width(), self.image.get_height()) and not toggle.is_toggled:
-                delete_laser(toggle.pointX, toggle.pointY)
                 toggle.is_toggled = True
                 toggle.image = toggle.imgs[1]
+                delete_laser(toggle.pointX, toggle.pointY)
 
         self.rect.x += dx
         self.rect.y += dy
@@ -211,6 +191,16 @@ class Character(pygame.sprite.Sprite):
                 self.rect.left < scroll_point and bg_scroll > abs(dx):
                 self.rect.x -= dx
                 d_screen_scroll = -dx
+        elif self.char_type == 'player2':
+            if player.is_alive:
+                if self.rect.left + dx < 0 or self.rect.right + dx > screen_width():
+                    self.rect.x -= dx
+            else:
+                if (self.rect.right > SCREEN_WIDTH - scroll_point and
+                    bg_scroll < (map.level_length * BLOCK_SIZE) - SCREEN_WIDTH) or \
+                        self.rect.left < scroll_point and bg_scroll > abs(dx):
+                    self.rect.x -= dx
+                    d_screen_scroll = -dx
 
         return d_screen_scroll, level_complete
 
@@ -285,10 +275,8 @@ def delete_laser(toggle_pointX, toggle_pointY):
                     delete.append(point[i])
         for i in delete:
             for laser in laser_group:
-                print(laser.pointY, laser.pointX, i[0], i[1])
                 if [laser.pointY, laser.pointX] == [i[0], i[1]]:
                     laser_group.remove(laser)
-                print()
 
 
 class Map:
@@ -298,6 +286,8 @@ class Map:
         self.wire_end_list = []
         self.playerX = 0
         self.playerY = 0
+        self.player2X = 0
+        self.player2Y = 0
         self.level_length = 0
 
     def process_data(self, data):
@@ -319,6 +309,9 @@ class Map:
                     elif block == 25:  # Setting player position values
                         self.playerX = x * BLOCK_SIZE
                         self.playerY = y * BLOCK_SIZE
+                    elif block == 29:  # Setting player position values
+                        self.player2X = x * BLOCK_SIZE
+                        self.player2Y = y * BLOCK_SIZE
 
         with open(f"Levels/levels_laser/level{LEVEL}.json", "r") as f:
             points = json.load(f)
@@ -333,7 +326,8 @@ class Map:
 
         # Generating player and return
         player = Character(self.playerX, self.playerY, 1, 7, 'player', 5)
-        return player
+        player2 = Character(self.player2X, self.player2Y, 1, 7, 'player2', 5)
+        return player, player2
 
     def draw(self):
         for laser in laser_group:
@@ -349,49 +343,107 @@ class Map:
             block[1][0] += screen_scroll
             screen.blit(block[0], block[1])
             if 0 < block[1][0] < SCREEN_WIDTH:
-                particle1_group.append([[block[1][0]+20, block[1][1]+25], [random.randint(10, 30) / 10 - 2, -1], random.randint(1, 4), block[1][0]+20])
-        particles()
+                particle1_group.append([[block[1][0]+20, block[1][1]+25], [random.randint(10, 30) / 10 - 2, -1],
+                                        random.randint(1, 4), block[1][0]+20, (60, 20, 20), (255, 140, 0)])
+        particles(screen, particle1_group, screen_scroll)
 
 
 # ------------------------ Main loop ------------------------
 IN_THE_SPACE = True
 map = Map()
-player = map.process_data(map_data)
+player, player2 = map.process_data(map_data)
 
 while IN_THE_SPACE:
 
     clock.tick(FPS)
     screen.fill(BLACK)
     map.draw()
-    screen_scroll, level_complete = player.move()
+
+    # ------------------------ Checking movements for both player ------------------------
+    if player.is_alive and player2.is_alive:
+        screen_scroll_tmp, level_complete = player.move()
+        screen_scroll_player2 = screen_scroll_tmp - screen_scroll
+        screen_scroll = screen_scroll_tmp
+        player2.move()
+        player2.rect.x += screen_scroll
+    elif player2.is_alive:
+        screen_scroll, level_complete = player2.move()
+    elif player.is_alive:
+        screen_scroll, level_complete = player.move()
+
+    # ------------------------ Calling updating functions ------------------------
     bg_scroll -= screen_scroll
-    player.draw()
-    player.update()
+    if player.is_alive:
+        player.draw()
+        player.update()
+    if player2.is_alive:
+        player2.draw()
+        player2.update()
     for toggle in toggle_group:
         toggle.update()
         toggle.draw()
 
+    # Checking if player touched any laser
+    if pygame.sprite.spritecollideany(player, laser_group):
+        for i in range(100):
+            particle1_group.append(
+                [[player.rect.x + 30 * player.direction, player.rect.y + 20 + random.randint(-30, 10)],
+                 [random.randint(0, 30) / 10 - 2, -1], random.randint(4, 7), 20, (77, 128, 230), (30, 144, 255)])
+        player.rect.y -= 1000
+        player.is_alive = False
+        player_moving_right = player_moving_left = screen_scroll = False
+    elif pygame.sprite.spritecollideany(player2, laser_group):
+        for i in range(100):
+            particle1_group.append(
+                [[player2.rect.x + 30 * player2.direction, player2.rect.y + 20 + random.randint(-30, 10)],
+                 [random.randint(0, 30) / 10 - 2, -1], random.randint(4, 7), 20, (60, 20, 20), (220, 20, 60)])
+        player2.rect.y -= 1000
+        player2.is_alive = False
+        player2_moving_right = player2_moving_left = screen_scroll = False
+
+    if player2.rect.x <= 0 or player2.rect.x >= screen_width():
+        for i in range(100):
+            particle1_group.append(
+                [[player2.rect.x, player2.rect.y + random.randint(-30, 10)], [random.randint(0, 30) / 10 - 2, -1],
+                 random.randint(4, 7), 20, (60, 20, 20), (220, 20, 60)])
+        player2.rect.y -= 1000
+        player2.is_alive = False
+
+    # ------------------------ Button events ------------------------
     for event in pygame.event.get():
         # Quit game
         if event.type == pygame.QUIT:
             IN_THE_SPACE = False
         # Keyboard presses
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_a:
-                moving_left = True
-            if event.key == pygame.K_d:
-                moving_right = True
-            if event.key == pygame.K_w:
-                player.in_air = True
-                player.jump = True
+            if player.is_alive:
+                if event.key == pygame.K_a:
+                    player_moving_left = True
+                if event.key == pygame.K_d:
+                    player_moving_right = True
+                if event.key == pygame.K_w:
+                    player.in_air = True
+                    player.jump = True
+            if player2.is_alive:
+                if event.key == pygame.K_LEFT:
+                    player2_moving_left = True
+                if event.key == pygame.K_RIGHT:
+                    player2_moving_right = True
+                if event.key == pygame.K_UP:
+                    player2.in_air = True
+                    player2.jump = True
             if event.key == pygame.K_ESCAPE:
                 IN_THE_SPACE = False
         # Keyboard released
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_a:
-                moving_left = False
+                player_moving_left = False
             if event.key == pygame.K_d:
-                moving_right = False
+                player_moving_right = False
+            if event.key == pygame.K_LEFT:
+                player2_moving_left = False
+            if event.key == pygame.K_RIGHT:
+                player2_moving_right = False
 
     pygame.display.update()
 

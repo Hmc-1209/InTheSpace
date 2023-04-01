@@ -14,7 +14,7 @@ RIGHT_SECTION = 250
 TOP_SECTION = 40
 BOTTOM_SECTION = 80
 OBS_TYPE = 25
-FTR_TYPE = 4
+FTR_TYPE = 6
 BLOCK_TYPE = OBS_TYPE+FTR_TYPE
 BLOCK_SIZE = 40
 MAX_COLUMNS = 100
@@ -239,7 +239,7 @@ for i in range(FTR_TYPE):
     col += 1
     if col == 4:
         row += 1
-        button_col = 0
+        col = 0
 
 # Other buttons
 col_increment = CreateButton(330, TOP_SECTION+SCREEN_HEIGHT+25, plus_img, 1)
