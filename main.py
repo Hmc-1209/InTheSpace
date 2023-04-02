@@ -44,7 +44,7 @@ pickle_in.close()
 particle1_group = []
 laser_group = pygame.sprite.Group()
 toggle_group = pygame.sprite.Group()
-player_group = pygame.sprite.Group()
+mobileplatform_group = pygame.sprite.Group()
 
 # Defining colors and fonts
 RED = (255, 0, 0)
@@ -62,7 +62,7 @@ player2_moving_right = False
 
 # ------------------------ Loading map images ------------------------
 img_list = []
-for x in range(BLOCK_TYPES-2):
+for x in range(BLOCK_TYPES-1):
     img = pygame.image.load(f'imgs/blocks/{x}.png').convert_alpha()
     img = pygame.transform.scale(img, (BLOCK_SIZE, BLOCK_SIZE))
     img_list.append(img)
@@ -147,7 +147,7 @@ class Character(pygame.sprite.Sprite):
             self.flip = False
             self.direction = 1
         if self.jump and not self.in_air:
-            self.vel_y = -15
+            self.vel_y = -12
             self.jump = False
             self.in_air = True
 
@@ -167,18 +167,32 @@ class Character(pygame.sprite.Sprite):
                     self.direction *= -1
             if block[1].colliderect(self.rect.x, self.rect.y + dy, self.image.get_width(), self.image.get_height()):
                 if self.vel_y < 0:
-                    self.vel_y = 0
                     dy = block[1].bottom - self.rect.top
+
                 elif self.vel_y >= 0:
-                    self.vel_y = 0
                     self.in_air = False
                     dy = block[1].top - self.rect.bottom
+                self.vel_y = 0
 
         for toggle in toggle_group:
             if toggle.rect.colliderect(self.rect.x, self.rect.y, self.image.get_width(), self.image.get_height()) and not toggle.is_toggled:
                 toggle.is_toggled = True
                 toggle.image = toggle.imgs[1]
                 delete_laser(toggle.pointX, toggle.pointY)
+
+        for mb in mobileplatform_group:
+            if mb.rect.colliderect(self.rect.x + dx, self.rect.y, self.image.get_width(), self.image.get_height()):
+                if mb.direction == -1:
+                    self.rect.y -= 3
+                dx = 0
+            if mb.rect.colliderect(self.rect.x, self.rect.y + dy, self.image.get_width(), self.image.get_height()):
+                if self.vel_y < 0:
+                    self.vel_y = 0
+                    dy = mb.rect.bottom - self.rect.top
+                elif self.vel_y >= 0:
+                    self.vel_y = 0
+                    self.in_air = False
+                    dy = mb.rect.top - self.rect.bottom
 
         self.rect.x += dx
         self.rect.y += dy
@@ -265,6 +279,37 @@ class Toggle(pygame.sprite.Sprite):
         screen.blit(self.image, self.rect)
 
 
+class MobilePlatform(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        pygame.sprite.Sprite.__init__(self)
+        self.x = x * BLOCK_SIZE
+        self.y = y * BLOCK_SIZE
+        self.start_point = self.x
+        self.end_point = (x - 4) * BLOCK_SIZE
+        self.direction = -1
+        self.image = pygame.transform.scale(pygame.image.load("imgs/elevator/0.png").convert_alpha(), (40, 40))
+        self.rect = self.image.get_rect()
+        self.rect.midtop = (self.x + BLOCK_SIZE // 2, self.y + (BLOCK_SIZE - self.image.get_height()) // 2)
+
+    def update(self):
+        self.rect.x += screen_scroll
+        self.start_point += screen_scroll
+        self.end_point += screen_scroll
+        if self.direction == -1:
+            if self.rect.x > self.end_point:
+                self.rect.x -= 1
+            else:
+                self.direction *= -1
+        else:
+            if self.rect.x < self.start_point:
+                self.rect.x += 1
+            else:
+                self.direction *= -1
+
+    def draw(self):
+        screen.blit(self.image, self.rect)
+
+
 def delete_laser(toggle_pointX, toggle_pointY):
     with open(f"Levels/levels_laser/level{LEVEL}.json", "r") as f:
         points = json.load(f)
@@ -312,6 +357,9 @@ class Map:
                     elif block == 29:  # Setting player position values
                         self.player2X = x * BLOCK_SIZE
                         self.player2Y = y * BLOCK_SIZE
+                    elif block == 30:
+                        mb = MobilePlatform(x, y)
+                        mobileplatform_group.add(mb)
 
         with open(f"Levels/levels_laser/level{LEVEL}.json", "r") as f:
             points = json.load(f)
@@ -382,6 +430,9 @@ while IN_THE_SPACE:
     for toggle in toggle_group:
         toggle.update()
         toggle.draw()
+    for elevator in mobileplatform_group:
+        elevator.update()
+        elevator.draw()
 
     # Checking if player touched any laser
     if pygame.sprite.spritecollideany(player, laser_group):
@@ -425,11 +476,11 @@ while IN_THE_SPACE:
                     player.in_air = True
                     player.jump = True
             if player2.is_alive:
-                if event.key == pygame.K_LEFT:
+                if event.key == pygame.K_j:
                     player2_moving_left = True
-                if event.key == pygame.K_RIGHT:
+                if event.key == pygame.K_l:
                     player2_moving_right = True
-                if event.key == pygame.K_UP:
+                if event.key == pygame.K_i:
                     player2.in_air = True
                     player2.jump = True
             if event.key == pygame.K_ESCAPE:
@@ -440,9 +491,9 @@ while IN_THE_SPACE:
                 player_moving_left = False
             if event.key == pygame.K_d:
                 player_moving_right = False
-            if event.key == pygame.K_LEFT:
+            if event.key == pygame.K_j:
                 player2_moving_left = False
-            if event.key == pygame.K_RIGHT:
+            if event.key == pygame.K_l:
                 player2_moving_right = False
 
     pygame.display.update()
