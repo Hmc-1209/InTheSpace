@@ -310,6 +310,37 @@ class MobilePlatform(pygame.sprite.Sprite):
         screen.blit(self.image, self.rect)
 
 
+class Entrance(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        pygame.sprite.Sprite.__init__(self)
+        self.x = x * BLOCK_SIZE
+        self.y = y * BLOCK_SIZE
+        self.imgs = []
+        for i in range(3):
+            self.imgs.append(pygame.transform.scale(pygame.image.load(f"imgs/entrance/{i}.png"), (40, 40)).convert_alpha())
+        self.frame = 0
+        self.update_time = 0
+        self.image = self.imgs[0]
+        self.rect = self.image.get_rect()
+        self.rect.midtop = (self.x + BLOCK_SIZE // 2, self.y + (BLOCK_SIZE - self.image.get_height()) // 2)
+
+    def update(self):
+        Animation_Cooldown = 150
+        if pygame.time.get_ticks() - self.update_time > Animation_Cooldown:
+            self.update_time = pygame.time.get_ticks()
+            self.frame += 1
+            if self.frame == 3:
+                self.frame = 0
+            self.image = self.imgs[self.frame]
+        self.rect.x += screen_scroll
+        if pygame.sprite.collide_rect(self, player) or pygame.sprite.collide_rect(self, player2):
+            level_complete = True
+            return level_complete
+
+    def draw(self):
+        screen.blit(self.image, self.rect)
+
+
 def delete_laser(toggle_pointX, toggle_pointY):
     with open(f"Levels/levels_laser/level{LEVEL}.json", "r") as f:
         points = json.load(f)
@@ -360,6 +391,9 @@ class Map:
                     elif block == 30:
                         mb = MobilePlatform(x, y)
                         mobileplatform_group.add(mb)
+                    elif block == 31:
+                        print(x, y)
+                        entrance = Entrance(x, y)
 
         with open(f"Levels/levels_laser/level{LEVEL}.json", "r") as f:
             points = json.load(f)
@@ -375,7 +409,7 @@ class Map:
         # Generating player and return
         player = Character(self.playerX, self.playerY, 1, 7, 'player', 5)
         player2 = Character(self.player2X, self.player2Y, 1, 7, 'player2', 5)
-        return player, player2
+        return player, player2, entrance
 
     def draw(self):
         for laser in laser_group:
@@ -399,7 +433,24 @@ class Map:
 # ------------------------ Main loop ------------------------
 IN_THE_SPACE = True
 map = Map()
-player, player2 = map.process_data(map_data)
+player, player2, entrance = map.process_data(map_data)
+
+
+def reset_level():
+    mobileplatform_group.empty()
+    toggle_group.empty()
+    laser_group.empty()
+    player.kill()
+    player2.kill()
+    entrance.kill()
+
+
+def next_level():
+    reset_level()
+    map = Map()
+    player, player2, entrance = map.process_data(map_data)
+    return player, player2, entrance, map
+
 
 while IN_THE_SPACE:
 
@@ -459,6 +510,28 @@ while IN_THE_SPACE:
                  random.randint(4, 7), 20, (60, 20, 20), (220, 20, 60)])
         player2.rect.y -= 1000
         player2.is_alive = False
+
+    # Entrance behavior
+    if entrance.update():
+        LEVEL += 1
+        if os.path.exists(f"Levels/levels_data/level{LEVEL}_data"):
+            pickle_in = open(f'Levels/levels_data/level{LEVEL}_data', 'rb')
+            COLS = len(pickle.load(pickle_in)[0])
+            pickle_in.close()
+            pickle_in = open(f'Levels/levels_data/level{LEVEL}_data', 'rb')
+            map_data = []
+            for i in range(16):
+                r = [-1] * COLS
+                map_data.append(r)
+            map_data = pickle.load(pickle_in)
+            pickle_in.close()
+            player, player2, entrance, map = next_level()
+            screen_scroll = 0
+            screen_scroll_player2 = 0
+            bg_scroll = 0
+        else:
+            IN_THE_SPACE = False
+    entrance.draw()
 
     # ------------------------ Button events ------------------------
     for event in pygame.event.get():
