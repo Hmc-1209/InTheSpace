@@ -3,6 +3,7 @@ import pickle
 import os
 import json
 import os.path
+from CreateButton import CreateButton
 
 pygame.init()
 
@@ -185,28 +186,6 @@ def map_save(map_data):
     return map_data
 
 
-# Generate button
-class CreateButton:
-    def __init__(self, x, y, img, scale):
-        self.width = img.get_width()
-        self.height = img.get_height()          # Resizing image
-        self.img = pygame.transform.scale(img, (int(self.width * scale), int(self.height * scale)))
-        self.rect = self.img.get_rect()
-        self.rect.topleft = (x, y)
-        self.clicked = False
-
-    def draw(self):
-        triggered = False
-        pos = pygame.mouse.get_pos()
-        if self.rect.collidepoint(pos) and pygame.mouse.get_pressed()[0] and not self.clicked:
-            triggered = True
-            self.clicked = True
-        if not pygame.mouse.get_pressed()[0]:
-            self.clicked = False
-        screen.blit(self.img, (self.rect.x, self.rect.y))
-        return triggered
-
-
 # Load images
 img_list = []
 for x in range(BLOCK_TYPE):
@@ -276,12 +255,12 @@ while run:
 
     # Buttons
     for i, button in enumerate(btn_list):
-        if button.draw():
+        if button.draw(screen):
             current_block = i
         pygame.draw.rect(screen, WHITE, btn_list[current_block].rect, 2)
     # Laser
     if LASER_SELECTING:
-        if laser_confirm_btn.draw():
+        if laser_confirm_btn.draw(screen):
             x = laser_select_list[0][0]
             y = laser_select_list[0][1]
             if map_data[x][y] == 27:
@@ -289,33 +268,33 @@ while run:
             elif map_data[x][y] == 28:
                 laser_bind_add(1)
             LASER_SELECTING = False
-        if laser_cancel_btn.draw():
+        if laser_cancel_btn.draw(screen):
             LASER_SELECTING = False
             map_data[toggle_point[0]][toggle_point[1]] = -1
     # Resetting map
     if not reset_map_confirmation:
-        if col_increment.draw():
+        if col_increment.draw(screen):
             tmp_cols += 1
-        if col_decrement.draw() and tmp_cols > 20:
+        if col_decrement.draw(screen) and tmp_cols > 20:
             tmp_cols -= 1
         if tmp_cols != MAX_COLUMNS:
-            if set_btn.draw():
+            if set_btn.draw(screen):
                 reset_map_confirmation = True
     else:
-        if l_confirm_btn.draw():
+        if l_confirm_btn.draw(screen):
             reset_map_confirmation = False
             MAX_COLUMNS = tmp_cols
             map_data = reset_map()
-        if l_cancel_btn.draw():
+        if l_cancel_btn.draw(screen):
             reset_map_confirmation = False
     if not EOF:
         if not rewrite_confirmation:
-            if level_increment.draw():
+            if level_increment.draw(screen):
                 LEVEL += 1
-            if level_decrement.draw():
+            if level_decrement.draw(screen):
                 if LEVEL > 1:
                     LEVEL -= 1
-            if save_btn.draw():
+            if save_btn.draw(screen):
                 if os.path.isfile(f"levels_data/level{LEVEL}_data"):
                     rewrite_confirmation = True
                 else:
@@ -323,7 +302,7 @@ while run:
                     pickle.dump(map_save(map_data), pickle_out)
                     print(map_save(map_data)[0])
                     pickle_out.close()
-            if load_btn.draw():
+            if load_btn.draw(screen):
                 if os.path.isfile(f"levels_data/level{LEVEL}_data"):
                     scroll = 0
                     map_data = []
@@ -336,12 +315,12 @@ while run:
                 else:
                     EOF = True
         else:
-            if r_confirm_btn.draw():
+            if r_confirm_btn.draw(screen):
                 pickle_out = open(f'levels_data/level{LEVEL}_data', 'wb')
                 pickle.dump(map_save(map_data), pickle_out)
                 pickle_out.close()
                 rewrite_confirmation = False
-            if r_cancel_btn.draw():
+            if r_cancel_btn.draw(screen):
                 rewrite_confirmation = False
     # File not found
     else:

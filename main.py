@@ -3,10 +3,13 @@ import os
 import random
 import pickle
 import json
+import math
+import time
 from pygame import mixer
 
 from GlobalVariables import screen_height, screen_width, scroll_thresh
 from particles import particles
+from CreateButton import CreateButton
 
 # Initialize the pygame
 pygame.init()
@@ -28,6 +31,9 @@ ROWS = 16
 BLOCK_SIZE = SCREEN_HEIGHT // ROWS
 BLOCK_TYPES = len(os.listdir("imgs/blocks"))
 LEVEL = 1
+levels = len(os.listdir("Levels/levels_data"))
+print(levels)
+main = True
 scroll_point = scroll_thresh()
 MAX_LEVELS = 2
 screen_scroll = 0
@@ -36,6 +42,7 @@ bg_scroll = 0
 start_game = False
 start_intro = False
 level_complete = False
+font = pygame.font.SysFont('impact', 30)
 
 pickle_in = open(f'Levels/levels_data/level{LEVEL}_data', 'rb')
 COLS = len(pickle.load(pickle_in)[0])
@@ -48,6 +55,7 @@ mobileplatform_group = pygame.sprite.Group()
 
 # Defining colors and fonts
 RED = (255, 0, 0)
+SILVER = (192, 192, 192)
 WHITE = (255, 255, 255)
 GREEN = (0, 255, 0)
 BLACK = (0, 0, 0)
@@ -68,12 +76,29 @@ for x in range(BLOCK_TYPES-1):
     img_list.append(img)
 
 map_data = []
-for i in range(16):
-    r = [-1] * COLS
-    map_data.append(r)
-pickle_in = open(f'Levels/levels_data/level{LEVEL}_data', 'rb')
-map_data = pickle.load(pickle_in)
-pickle_in.close()
+
+bg_img = []
+for i in range(4):
+    bg_img.append(pygame.transform.scale(pygame.image.load(f"imgs/background/{i}.png"), (screen_height(), screen_height())))
+
+title_img = pygame.transform.scale(pygame.image.load("imgs/title.png").convert_alpha(), (600, 200))
+level_img = pygame.transform.scale(pygame.image.load("imgs/level.png").convert_alpha(), (400, 100))
+start_img = pygame.transform.scale(pygame.image.load("imgs/start.png").convert_alpha(), (400, 100))
+quit_img = pygame.transform.scale(pygame.image.load("imgs/quit.png").convert_alpha(), (400, 100))
+next_img = pygame.transform.scale(pygame.image.load("imgs/next.png").convert_alpha(), (40, 40))
+prev_img = pygame.transform.scale(pygame.image.load("imgs/prev.png").convert_alpha(), (40, 40))
+
+
+def draw_bg():
+    screen.fill(BLACK)
+    r = math.ceil(COLS * BLOCK_SIZE / screen_height())
+    width = bg_img[0].get_width()
+    for i in range(r):
+        pass
+        screen.blit(bg_img[0], (i * width - bg_scroll * 0.5, 0))
+        # screen.blit(bg_img[1], (i * width - bg_scroll * 0.7, 0))
+        # screen.blit(bg_img[2], (i * width - bg_scroll * 0.5, 0))
+        screen.blit(bg_img[3], (i * width - bg_scroll * 0.5, 0))
 
 
 # ------------------------ Objects ------------------------
@@ -235,10 +260,10 @@ class Laser(pygame.sprite.Sprite):
         for i in range(3):
             if dir == 0:
                 self.imgs.append(pygame.transform.scale(
-                    pygame.image.load(f"imgs/laser/horizontal/{i}.png"), (40, 40)).convert_alpha())
+                    pygame.image.load(f"imgs/laser/horizontal/{i}.png"), (40, 30)).convert_alpha())
             else:
                 self.imgs.append(pygame.transform.scale(
-                    pygame.image.load(f"imgs/laser/vertical/{i}.png"), (40, 40)).convert_alpha())
+                    pygame.image.load(f"imgs/laser/vertical/{i}.png"), (30, 40)).convert_alpha())
         self.image = self.imgs[self.frames]
         self.rect = self.image.get_rect()
         self.rect.midtop = (x + BLOCK_SIZE // 2, y + (BLOCK_SIZE - self.image.get_height()) // 2)
@@ -282,32 +307,38 @@ class Toggle(pygame.sprite.Sprite):
 class MobilePlatform(pygame.sprite.Sprite):
     def __init__(self, x, y):
         pygame.sprite.Sprite.__init__(self)
-        self.x = x * BLOCK_SIZE
+        self.x = x * BLOCK_SIZE + screen_scroll
         self.y = y * BLOCK_SIZE
+        self.start_counter = random.randint(100, 300)
         self.start_point = self.x
         self.end_point = (x - 4) * BLOCK_SIZE
         self.direction = -1
-        self.image = pygame.transform.scale(pygame.image.load("imgs/elevator/0.png").convert_alpha(), (40, 40))
+        self.image = pygame.transform.scale(pygame.image.load("imgs/mobileplatform/0.png").convert_alpha(), (40, 40))
         self.rect = self.image.get_rect()
         self.rect.midtop = (self.x + BLOCK_SIZE // 2, self.y + (BLOCK_SIZE - self.image.get_height()) // 2)
 
     def update(self):
-        self.rect.x += screen_scroll
-        self.start_point += screen_scroll
-        self.end_point += screen_scroll
-        if self.direction == -1:
-            if self.rect.x > self.end_point:
-                self.rect.x -= 1
+        if self.start_counter == 0:
+            self.rect.x += screen_scroll
+            self.start_point += screen_scroll
+            self.end_point += screen_scroll
+            if self.direction == -1:
+                if self.rect.x > self.end_point:
+                    self.rect.x -= 1
+                else:
+                    self.rect.x += screen_scroll
+                    self.direction *= -1
             else:
-                self.direction *= -1
+                if self.rect.x < self.start_point:
+                    self.rect.x += 1
+                else:
+                    self.direction *= -1
         else:
-            if self.rect.x < self.start_point:
-                self.rect.x += 1
-            else:
-                self.direction *= -1
+            self.start_counter -= 1
 
     def draw(self):
-        screen.blit(self.image, self.rect)
+        if self.start_counter == 0:
+            screen.blit(self.image, self.rect)
 
 
 class Entrance(pygame.sprite.Sprite):
@@ -339,6 +370,21 @@ class Entrance(pygame.sprite.Sprite):
 
     def draw(self):
         screen.blit(self.image, self.rect)
+
+
+class Transition(pygame.sprite.Sprite):
+    def __init__(self, type, color, step):
+        pygame.sprite.Sprite.__init__(self)
+        self.counter = 0
+        self.finish = False
+        self.type = type
+        self.color = color
+        self.step = step
+
+    def update(self):
+        if self.type == 0:
+            pygame.draw.rect(screen, self.color, (0+self.step, screen_width(), 0, screen_height()))
+        self.step += 1
 
 
 def delete_laser(toggle_pointX, toggle_pointY):
@@ -392,7 +438,6 @@ class Map:
                         mb = MobilePlatform(x, y)
                         mobileplatform_group.add(mb)
                     elif block == 31:
-                        print(x, y)
                         entrance = Entrance(x, y)
 
         with open(f"Levels/levels_laser/level{LEVEL}.json", "r") as f:
@@ -432,8 +477,6 @@ class Map:
 
 # ------------------------ Main loop ------------------------
 IN_THE_SPACE = True
-map = Map()
-player, player2, entrance = map.process_data(map_data)
 
 
 def reset_level():
@@ -452,122 +495,168 @@ def next_level():
     return player, player2, entrance, map
 
 
+def draw_text(text, font, color, x, y):
+    img = font.render(text, True, color)
+    screen.blit(img, (x, y))
+
+
 while IN_THE_SPACE:
 
     clock.tick(FPS)
-    screen.fill(BLACK)
-    map.draw()
+    if not main:
+        draw_bg()
+        map.draw()
 
-    # ------------------------ Checking movements for both player ------------------------
-    if player.is_alive and player2.is_alive:
-        screen_scroll_tmp, level_complete = player.move()
-        screen_scroll_player2 = screen_scroll_tmp - screen_scroll
-        screen_scroll = screen_scroll_tmp
-        player2.move()
-        player2.rect.x += screen_scroll
-    elif player2.is_alive:
-        screen_scroll, level_complete = player2.move()
-    elif player.is_alive:
-        screen_scroll, level_complete = player.move()
+        # ------------------------ Checking movements for both player ------------------------
+        if player.is_alive and player2.is_alive:
+            screen_scroll_tmp, level_complete = player.move()
+            screen_scroll_player2 = screen_scroll_tmp - screen_scroll
+            screen_scroll = screen_scroll_tmp
+            player2.move()
+            player2.rect.x += screen_scroll
+        elif player2.is_alive:
+            screen_scroll, level_complete = player2.move()
+        elif player.is_alive:
+            screen_scroll, level_complete = player.move()
 
-    # ------------------------ Calling updating functions ------------------------
-    bg_scroll -= screen_scroll
-    if player.is_alive:
-        player.draw()
-        player.update()
-    if player2.is_alive:
-        player2.draw()
-        player2.update()
-    for toggle in toggle_group:
-        toggle.update()
-        toggle.draw()
-    for elevator in mobileplatform_group:
-        elevator.update()
-        elevator.draw()
+        # ------------------------ Calling updating functions ------------------------
+        bg_scroll -= screen_scroll
+        if player.is_alive:
+            player.draw()
+            player.update()
+        if player2.is_alive:
+            player2.draw()
+            player2.update()
+        for toggle in toggle_group:
+            toggle.update()
+            toggle.draw()
+        for mb in mobileplatform_group:
+            mb.update()
+            mb.draw()
 
-    # Checking if player touched any laser
-    if pygame.sprite.spritecollideany(player, laser_group):
-        for i in range(100):
-            particle1_group.append(
-                [[player.rect.x + 30 * player.direction, player.rect.y + 20 + random.randint(-30, 10)],
-                 [random.randint(0, 30) / 10 - 2, -1], random.randint(4, 7), 20, (77, 128, 230), (30, 144, 255)])
-        player.rect.y -= 1000
-        player.is_alive = False
-        player_moving_right = player_moving_left = screen_scroll = False
-    elif pygame.sprite.spritecollideany(player2, laser_group):
-        for i in range(100):
-            particle1_group.append(
-                [[player2.rect.x + 30 * player2.direction, player2.rect.y + 20 + random.randint(-30, 10)],
-                 [random.randint(0, 30) / 10 - 2, -1], random.randint(4, 7), 20, (60, 20, 20), (220, 20, 60)])
-        player2.rect.y -= 1000
-        player2.is_alive = False
-        player2_moving_right = player2_moving_left = screen_scroll = False
+        # Checking if player touched any laser
+        if pygame.sprite.spritecollideany(player, laser_group):
+            for i in range(100):
+                particle1_group.append(
+                    [[player.rect.x + 30 * player.direction, player.rect.y + 20 + random.randint(-30, 10)],
+                     [random.randint(0, 30) / 10 - 2, -1], random.randint(4, 7), 20, (77, 128, 230), (30, 144, 255)])
+            player.rect.y -= 1000
+            player.is_alive = False
+            player_moving_right = player_moving_left = screen_scroll = False
+        elif pygame.sprite.spritecollideany(player2, laser_group):
+            for i in range(100):
+                particle1_group.append(
+                    [[player2.rect.x + 30 * player2.direction, player2.rect.y + 20 + random.randint(-30, 10)],
+                     [random.randint(0, 30) / 10 - 2, -1], random.randint(4, 7), 20, (60, 20, 20), (220, 20, 60)])
+            player2.rect.y -= 1000
+            player2.is_alive = False
+            player2_moving_right = player2_moving_left = screen_scroll = False
 
-    if player2.rect.x <= 0 or player2.rect.x >= screen_width():
-        for i in range(100):
-            particle1_group.append(
-                [[player2.rect.x, player2.rect.y + random.randint(-30, 10)], [random.randint(0, 30) / 10 - 2, -1],
-                 random.randint(4, 7), 20, (60, 20, 20), (220, 20, 60)])
-        player2.rect.y -= 1000
-        player2.is_alive = False
+        if player2.rect.x <= 0 or player2.rect.x >= screen_width():
+            for i in range(100):
+                particle1_group.append(
+                    [[player2.rect.x, player2.rect.y + random.randint(-30, 10)], [random.randint(0, 30) / 10 - 2, -1],
+                     random.randint(4, 7), 20, (60, 20, 20), (220, 20, 60)])
+            player2.rect.y -= 1000
+            player2.is_alive = False
 
-    # Entrance behavior
-    if entrance.update():
-        LEVEL += 1
-        if os.path.exists(f"Levels/levels_data/level{LEVEL}_data"):
-            pickle_in = open(f'Levels/levels_data/level{LEVEL}_data', 'rb')
-            COLS = len(pickle.load(pickle_in)[0])
-            pickle_in.close()
-            pickle_in = open(f'Levels/levels_data/level{LEVEL}_data', 'rb')
-            map_data = []
+        # Entrance behavior
+        if entrance.update():
+            LEVEL += 1
+            if os.path.exists(f"Levels/levels_data/level{LEVEL}_data"):
+                pickle_in = open(f'Levels/levels_data/level{LEVEL}_data', 'rb')
+                COLS = len(pickle.load(pickle_in)[0])
+                pickle_in.close()
+                pickle_in = open(f'Levels/levels_data/level{LEVEL}_data', 'rb')
+                map_data = []
+                for i in range(16):
+                    r = [-1] * COLS
+                    map_data.append(r)
+                map_data = pickle.load(pickle_in)
+                pickle_in.close()
+                player, player2, entrance, map = next_level()
+                screen_scroll = screen_scroll_player2 = 0
+                bg_scroll = 0
+            else:
+                player_moving_right = player_moving_left = player2_moving_right = player2_moving_left = False
+                screen_scroll = screen_scroll_player2 = 0
+                bg_scroll = 0
+                LEVEL -= 1
+                main = True
+        entrance.draw()
+
+        # ------------------------ Button events ------------------------
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                IN_THE_SPACE = False
+            # Keyboard presses
+            if event.type == pygame.KEYDOWN:
+                if player.is_alive:
+                    if event.key == pygame.K_a:
+                        player_moving_left = True
+                    if event.key == pygame.K_d:
+                        player_moving_right = True
+                    if event.key == pygame.K_w:
+                        player.in_air = True
+                        player.jump = True
+                    if event.key == pygame.K_ESCAPE:
+                        IN_THE_SPACE = False
+                if player2.is_alive:
+                    if event.key == pygame.K_j:
+                        player2_moving_left = True
+                    if event.key == pygame.K_l:
+                        player2_moving_right = True
+                    if event.key == pygame.K_i:
+                        player2.in_air = True
+                        player2.jump = True
+            # Keyboard released
+            if event.type == pygame.KEYUP:
+                if event.key == pygame.K_a:
+                    player_moving_left = False
+                if event.key == pygame.K_d:
+                    player_moving_right = False
+                if event.key == pygame.K_j:
+                    player2_moving_left = False
+                if event.key == pygame.K_l:
+                    player2_moving_right = False
+    else:
+        screen.fill(BLACK)
+        screen.blit(title_img, (screen_width() / 2 - title_img.get_width() / 2, 20))
+        level_btn = CreateButton(screen_width() / 2 - level_img.get_width() / 2, 250, level_img, 1)
+        start_btn = CreateButton(screen_width() / 2 - start_img.get_width() / 2, 350, start_img, 1)
+        quit_btn = CreateButton(screen_width() / 2 - quit_img.get_width() / 2, 450, quit_img, 1)
+        next_btn = CreateButton(screen_width() / 2 - level_img.get_width() / 2 + 450, 280, next_img, 1)
+        prev_btn = CreateButton(screen_width() / 2 - level_img.get_width() / 2 - 100, 280, prev_img, 1)
+
+        level_btn.draw(screen)
+        draw_text(f"{LEVEL}", font, WHITE, screen_width() / 2 - level_img.get_width() / 2 + 320, 280)
+        if next_btn.draw(screen):
+            if LEVEL < levels:
+                LEVEL += 1
+                time.sleep(.1)
+        if prev_btn.draw(screen):
+            if LEVEL > 1:
+                LEVEL -= 1
+                time.sleep(.1)
+        if start_btn.draw(screen):
+            main = False
             for i in range(16):
                 r = [-1] * COLS
                 map_data.append(r)
+            pickle_in = open(f'Levels/levels_data/level{LEVEL}_data', 'rb')
             map_data = pickle.load(pickle_in)
             pickle_in.close()
-            player, player2, entrance, map = next_level()
-            screen_scroll = 0
-            screen_scroll_player2 = 0
-            bg_scroll = 0
-        else:
+            map = Map()
+            player, player2, entrance = map.process_data(map_data)
+        if quit_btn.draw(screen):
             IN_THE_SPACE = False
-    entrance.draw()
 
-    # ------------------------ Button events ------------------------
     for event in pygame.event.get():
         # Quit game
         if event.type == pygame.QUIT:
             IN_THE_SPACE = False
-        # Keyboard presses
-        if event.type == pygame.KEYDOWN:
-            if player.is_alive:
-                if event.key == pygame.K_a:
-                    player_moving_left = True
-                if event.key == pygame.K_d:
-                    player_moving_right = True
-                if event.key == pygame.K_w:
-                    player.in_air = True
-                    player.jump = True
-            if player2.is_alive:
-                if event.key == pygame.K_j:
-                    player2_moving_left = True
-                if event.key == pygame.K_l:
-                    player2_moving_right = True
-                if event.key == pygame.K_i:
-                    player2.in_air = True
-                    player2.jump = True
-            if event.key == pygame.K_ESCAPE:
-                IN_THE_SPACE = False
-        # Keyboard released
-        if event.type == pygame.KEYUP:
-            if event.key == pygame.K_a:
-                player_moving_left = False
-            if event.key == pygame.K_d:
-                player_moving_right = False
-            if event.key == pygame.K_j:
-                player2_moving_left = False
-            if event.key == pygame.K_l:
-                player2_moving_right = False
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+            IN_THE_SPACE = False
 
     pygame.display.update()
 
