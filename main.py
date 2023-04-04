@@ -32,7 +32,6 @@ BLOCK_SIZE = SCREEN_HEIGHT // ROWS
 BLOCK_TYPES = len(os.listdir("imgs/blocks"))
 LEVEL = 1
 levels = len(os.listdir("Levels/levels_data"))
-print(levels)
 main = True
 scroll_point = scroll_thresh()
 MAX_LEVELS = 2
@@ -43,6 +42,8 @@ start_game = False
 start_intro = False
 level_complete = False
 font = pygame.font.SysFont('impact', 30)
+start_fade_sig = 0
+fading = False
 
 pickle_in = open(f'Levels/levels_data/level{LEVEL}_data', 'rb')
 COLS = len(pickle.load(pickle_in)[0])
@@ -55,7 +56,7 @@ mobileplatform_group = pygame.sprite.Group()
 
 # Defining colors and fonts
 RED = (255, 0, 0)
-SILVER = (192, 192, 192)
+DARK_SILVER = (154, 154, 154)
 WHITE = (255, 255, 255)
 GREEN = (0, 255, 0)
 BLACK = (0, 0, 0)
@@ -87,6 +88,7 @@ start_img = pygame.transform.scale(pygame.image.load("imgs/start.png").convert_a
 quit_img = pygame.transform.scale(pygame.image.load("imgs/quit.png").convert_alpha(), (400, 100))
 next_img = pygame.transform.scale(pygame.image.load("imgs/next.png").convert_alpha(), (40, 40))
 prev_img = pygame.transform.scale(pygame.image.load("imgs/prev.png").convert_alpha(), (40, 40))
+fade_img = pygame.transform.scale(pygame.image.load("imgs/fade.png").convert_alpha(), (screen_width(), screen_height()))
 
 
 def draw_bg():
@@ -163,83 +165,84 @@ class Character(pygame.sprite.Sprite):
     def move(self):
         dx = dy = 0
         d_screen_scroll = 0
-        if (self.char_type == 'player' and player_moving_left) or (self.char_type == 'player2' and player2_moving_left):
-            dx = -self.speed
-            self.flip = True
-            self.direction = -1
-        if (self.char_type == 'player' and player_moving_right) or (self.char_type == 'player2' and player2_moving_right):
-            dx = self.speed
-            self.flip = False
-            self.direction = 1
-        if self.jump and not self.in_air:
-            self.vel_y = -12
-            self.jump = False
-            self.in_air = True
+        if not fading:
+            if (self.char_type == 'player' and player_moving_left) or (self.char_type == 'player2' and player2_moving_left):
+                dx = -self.speed
+                self.flip = True
+                self.direction = -1
+            if (self.char_type == 'player' and player_moving_right) or (self.char_type == 'player2' and player2_moving_right):
+                dx = self.speed
+                self.flip = False
+                self.direction = 1
+            if self.jump and not self.in_air:
+                self.vel_y = -12
+                self.jump = False
+                self.in_air = True
 
-        self.vel_y += GRAVITY
-        if self.vel_y > 10:
-            self.vel_y = 10
-        dy += self.vel_y
+            self.vel_y += GRAVITY
+            if self.vel_y > 10:
+                self.vel_y = 10
+            dy += self.vel_y
 
-        if self.rect.bottom > SCREEN_HEIGHT:
-            self.rect.bottom += 50
-            self.health = 0
+            if self.rect.bottom > SCREEN_HEIGHT:
+                self.rect.bottom += 50
+                self.health = 0
 
-        for block in map.obstacle_list:
-            if block[1].colliderect(self.rect.x + dx, self.rect.y, self.image.get_width(), self.image.get_height()):
-                dx = 0
-                if self.char_type == 'enemy':
-                    self.direction *= -1
-            if block[1].colliderect(self.rect.x, self.rect.y + dy, self.image.get_width(), self.image.get_height()):
-                if self.vel_y < 0:
-                    dy = block[1].bottom - self.rect.top
+            for block in map.obstacle_list:
+                if block[1].colliderect(self.rect.x + dx, self.rect.y, self.image.get_width(), self.image.get_height()):
+                    dx = 0
+                    if self.char_type == 'enemy':
+                        self.direction *= -1
+                if block[1].colliderect(self.rect.x, self.rect.y + dy, self.image.get_width(), self.image.get_height()):
+                    if self.vel_y < 0:
+                        dy = block[1].bottom - self.rect.top
 
-                elif self.vel_y >= 0:
-                    self.in_air = False
-                    dy = block[1].top - self.rect.bottom
-                self.vel_y = 0
-
-        for toggle in toggle_group:
-            if toggle.rect.colliderect(self.rect.x, self.rect.y, self.image.get_width(), self.image.get_height()) and not toggle.is_toggled:
-                toggle.is_toggled = True
-                toggle.image = toggle.imgs[1]
-                delete_laser(toggle.pointX, toggle.pointY)
-
-        for mb in mobileplatform_group:
-            if mb.rect.colliderect(self.rect.x + dx, self.rect.y, self.image.get_width(), self.image.get_height()):
-                if mb.direction == -1:
-                    self.rect.y -= 3
-                dx = 0
-            if mb.rect.colliderect(self.rect.x, self.rect.y + dy, self.image.get_width(), self.image.get_height()):
-                if self.vel_y < 0:
+                    elif self.vel_y >= 0:
+                        self.in_air = False
+                        dy = block[1].top - self.rect.bottom
                     self.vel_y = 0
-                    dy = mb.rect.bottom - self.rect.top
-                elif self.vel_y >= 0:
-                    self.vel_y = 0
-                    self.in_air = False
-                    dy = mb.rect.top - self.rect.bottom
 
-        self.rect.x += dx
-        self.rect.y += dy
+            for toggle in toggle_group:
+                if toggle.rect.colliderect(self.rect.x, self.rect.y, self.image.get_width(), self.image.get_height()) and not toggle.is_toggled:
+                    toggle.is_toggled = True
+                    toggle.image = toggle.imgs[1]
+                    delete_laser(toggle.pointX, toggle.pointY)
 
-        if self.char_type == 'player':
-            if self.rect.left + dx < 0 or self.rect.right + dx > screen_width():
-                dx = 0
-            if (self.rect.right > SCREEN_WIDTH - scroll_point and
-                bg_scroll < (map.level_length * BLOCK_SIZE) - SCREEN_WIDTH) or \
-                self.rect.left < scroll_point and bg_scroll > abs(dx):
-                self.rect.x -= dx
-                d_screen_scroll = -dx
-        elif self.char_type == 'player2':
-            if player.is_alive:
+            for mb in mobileplatform_group:
+                if mb.rect.colliderect(self.rect.x + dx, self.rect.y, self.image.get_width(), self.image.get_height()):
+                    if mb.direction == -1:
+                        self.rect.y -= 3
+                    dx = 0
+                if mb.rect.colliderect(self.rect.x, self.rect.y + dy, self.image.get_width(), self.image.get_height()):
+                    if self.vel_y < 0:
+                        self.vel_y = 0
+                        dy = mb.rect.bottom - self.rect.top
+                    elif self.vel_y >= 0:
+                        self.vel_y = 0
+                        self.in_air = False
+                        dy = mb.rect.top - self.rect.bottom
+
+            self.rect.x += dx
+            self.rect.y += dy
+
+            if self.char_type == 'player':
                 if self.rect.left + dx < 0 or self.rect.right + dx > screen_width():
-                    self.rect.x -= dx
-            else:
+                    dx = 0
                 if (self.rect.right > SCREEN_WIDTH - scroll_point and
                     bg_scroll < (map.level_length * BLOCK_SIZE) - SCREEN_WIDTH) or \
-                        self.rect.left < scroll_point and bg_scroll > abs(dx):
+                    self.rect.left < scroll_point and bg_scroll > abs(dx):
                     self.rect.x -= dx
                     d_screen_scroll = -dx
+            elif self.char_type == 'player2':
+                if player.is_alive:
+                    if self.rect.left + dx < 0 or self.rect.right + dx > screen_width():
+                        self.rect.x -= dx
+                else:
+                    if (self.rect.right > SCREEN_WIDTH - scroll_point and
+                        bg_scroll < (map.level_length * BLOCK_SIZE) - SCREEN_WIDTH) or \
+                            self.rect.left < scroll_point and bg_scroll > abs(dx):
+                        self.rect.x -= dx
+                        d_screen_scroll = -dx
 
         return d_screen_scroll, level_complete
 
@@ -307,26 +310,26 @@ class Toggle(pygame.sprite.Sprite):
 class MobilePlatform(pygame.sprite.Sprite):
     def __init__(self, x, y):
         pygame.sprite.Sprite.__init__(self)
-        self.x = x * BLOCK_SIZE + screen_scroll
+        self.x = x * BLOCK_SIZE + bg_scroll
         self.y = y * BLOCK_SIZE
-        self.start_counter = random.randint(100, 300)
+        self.start_counter = random.randint(100, 150)
         self.start_point = self.x
-        self.end_point = (x - 4) * BLOCK_SIZE
+        self.end_point = self.x - 4 * BLOCK_SIZE
         self.direction = -1
         self.image = pygame.transform.scale(pygame.image.load("imgs/mobileplatform/0.png").convert_alpha(), (40, 40))
         self.rect = self.image.get_rect()
         self.rect.midtop = (self.x + BLOCK_SIZE // 2, self.y + (BLOCK_SIZE - self.image.get_height()) // 2)
 
     def update(self):
+        self.rect.x += screen_scroll
+        self.start_point += screen_scroll
+        self.end_point += screen_scroll
         if self.start_counter == 0:
-            self.rect.x += screen_scroll
-            self.start_point += screen_scroll
-            self.end_point += screen_scroll
+            # print(self.start_point, self.end_point)
             if self.direction == -1:
                 if self.rect.x > self.end_point:
                     self.rect.x -= 1
                 else:
-                    self.rect.x += screen_scroll
                     self.direction *= -1
             else:
                 if self.rect.x < self.start_point:
@@ -475,8 +478,38 @@ class Map:
         particles(screen, particle1_group, screen_scroll)
 
 
+class Fade:
+    def __init__(self, dir, color):
+        self.fade_counter = 0
+        self.dir = dir
+        self.color = color
+
+    def fade(self):
+        fade_complete = False
+
+        # Fade in
+        if self.dir == 1:
+            pygame.draw.rect(screen, self.color, (0, 0, self.fade_counter, screen_height()))
+            self.fade_counter += 30
+
+            if self.fade_counter >= screen_width():
+                fade_complete = True
+
+        # Fade out
+        if self.dir == 2:
+            pygame.draw.rect(screen, self.color, (self.fade_counter, 0, screen_width(), screen_height()))
+            self.fade_counter += 30
+
+            if self.fade_counter >= screen_width():
+                fade_complete = True
+
+        return fade_complete
+
+
 # ------------------------ Main loop ------------------------
 IN_THE_SPACE = True
+fade_in = Fade(1, DARK_SILVER)
+fade_out = Fade(2, DARK_SILVER)
 
 
 def reset_level():
@@ -521,6 +554,7 @@ while IN_THE_SPACE:
 
         # ------------------------ Calling updating functions ------------------------
         bg_scroll -= screen_scroll
+
         if player.is_alive:
             player.draw()
             player.update()
@@ -560,38 +594,55 @@ while IN_THE_SPACE:
             player2.rect.y -= 1000
             player2.is_alive = False
 
+        entrance.draw()
         # Entrance behavior
         if entrance.update():
-            LEVEL += 1
-            if os.path.exists(f"Levels/levels_data/level{LEVEL}_data"):
-                pickle_in = open(f'Levels/levels_data/level{LEVEL}_data', 'rb')
-                COLS = len(pickle.load(pickle_in)[0])
-                pickle_in.close()
-                pickle_in = open(f'Levels/levels_data/level{LEVEL}_data', 'rb')
-                map_data = []
-                for i in range(16):
-                    r = [-1] * COLS
-                    map_data.append(r)
-                map_data = pickle.load(pickle_in)
-                pickle_in.close()
-                player, player2, entrance, map = next_level()
-                screen_scroll = screen_scroll_player2 = 0
-                bg_scroll = 0
-            else:
-                player_moving_right = player_moving_left = player2_moving_right = player2_moving_left = False
-                screen_scroll = screen_scroll_player2 = 0
-                bg_scroll = 0
-                LEVEL -= 1
-                main = True
-        entrance.draw()
+            start_fade_sig = 1
+            if fade_in.fade():
+                start_fade_sig = 2
+                fade_in.fade_counter = 0
+            if start_fade_sig == 2:
+                LEVEL += 1
+                if os.path.exists(f"Levels/levels_data/level{LEVEL}_data"):
+                    pickle_in = open(f'Levels/levels_data/level{LEVEL}_data', 'rb')
+                    COLS = len(pickle.load(pickle_in)[0])
+                    pickle_in.close()
+                    pickle_in = open(f'Levels/levels_data/level{LEVEL}_data', 'rb')
+                    map_data = []
+                    for i in range(16):
+                        r = [-1] * COLS
+                        map_data.append(r)
+                    map_data = pickle.load(pickle_in)
+                    pickle_in.close()
+                    player, player2, entrance, map = next_level()
+                    screen_scroll = screen_scroll_player2 = 0
+                    bg_scroll = 0
+                else:
+                    player_moving_right = player_moving_left = player2_moving_right = player2_moving_left = False
+                    screen_scroll = screen_scroll_player2 = bg_scroll = 0
+                    LEVEL -= 1
+                    main = True
 
+        # Check if all player dies
+        if not player.is_alive and not player2.is_alive:
+            reset_level()
+            screen_scroll = bg_scroll = 0
+            main = True
+
+        if start_fade_sig == 1:
+            fading = True
+        if start_fade_sig == 2:
+            if fade_out.fade():
+                fading = False
+                fade_out.fade_counter = 0
+                start_fade_sig = 0
         # ------------------------ Button events ------------------------
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 IN_THE_SPACE = False
             # Keyboard presses
             if event.type == pygame.KEYDOWN:
-                if player.is_alive:
+                if player.is_alive and not fading:
                     if event.key == pygame.K_a:
                         player_moving_left = True
                     if event.key == pygame.K_d:
@@ -601,7 +652,7 @@ while IN_THE_SPACE:
                         player.jump = True
                     if event.key == pygame.K_ESCAPE:
                         IN_THE_SPACE = False
-                if player2.is_alive:
+                if player2.is_alive and not fading:
                     if event.key == pygame.K_j:
                         player2_moving_left = True
                     if event.key == pygame.K_l:
@@ -639,6 +690,14 @@ while IN_THE_SPACE:
                 LEVEL -= 1
                 time.sleep(.1)
         if start_btn.draw(screen):
+            start_fade_sig = 1
+        if quit_btn.draw(screen):
+            IN_THE_SPACE = False
+
+        # Starting the game (fade)
+        if start_fade_sig == 1 and fade_in.fade():
+            fade_in.fade_counter = 0
+            start_fade_sig = 2
             main = False
             for i in range(16):
                 r = [-1] * COLS
@@ -648,8 +707,11 @@ while IN_THE_SPACE:
             pickle_in.close()
             map = Map()
             player, player2, entrance = map.process_data(map_data)
-        if quit_btn.draw(screen):
-            IN_THE_SPACE = False
+        if start_fade_sig == 2:
+            if fade_out.fade():
+                fading = False
+                fade_out.fade_counter = 0
+                start_fade_sig = 0
 
     for event in pygame.event.get():
         # Quit game
