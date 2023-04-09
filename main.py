@@ -89,6 +89,8 @@ quit_img = pygame.transform.scale(pygame.image.load("imgs/quit.png").convert_alp
 next_img = pygame.transform.scale(pygame.image.load("imgs/next.png").convert_alpha(), (40, 40))
 prev_img = pygame.transform.scale(pygame.image.load("imgs/prev.png").convert_alpha(), (40, 40))
 fade_img = pygame.transform.scale(pygame.image.load("imgs/fade.png").convert_alpha(), (screen_width(), screen_height()))
+dead_aud = pygame.mixer.Sound("audio/dead.mp3")
+dead_aud.set_volume(.1)
 
 
 def draw_bg():
@@ -325,7 +327,6 @@ class MobilePlatform(pygame.sprite.Sprite):
         self.start_point += screen_scroll
         self.end_point += screen_scroll
         if self.start_counter == 0:
-            # print(self.start_point, self.end_point)
             if self.direction == -1:
                 if self.rect.x > self.end_point:
                     self.rect.x -= 1
@@ -416,6 +417,7 @@ class Map:
         self.level_length = 0
 
     def process_data(self, data):
+        group_clear()
         self.level_length = len(data[0])
         for y, row in enumerate(data):
             for x, block in enumerate(row):
@@ -533,8 +535,25 @@ def draw_text(text, font, color, x, y):
     screen.blit(img, (x, y))
 
 
-while IN_THE_SPACE:
+def group_clear():
+    for laser in laser_group:
+        laser_group.remove(laser)
+    for toggle in toggle_group:
+        toggle_group.remove(toggle)
+    particle1_group.clear()
 
+
+# Music
+def bg_music(n):
+    pygame.mixer.music.fadeout(800)
+    pygame.mixer.music.unload()
+    pygame.mixer.music.load(f"audio/BG_{n}.mp3")
+    pygame.mixer.music.play(-1, 0, 0)
+    pygame.mixer.music.set_volume(.05)
+
+
+bg_music(1)
+while IN_THE_SPACE:
     clock.tick(FPS)
     if not main:
         draw_bg()
@@ -570,6 +589,7 @@ while IN_THE_SPACE:
 
         # Checking if player touched any laser
         if pygame.sprite.spritecollideany(player, laser_group):
+            dead_aud.play()
             for i in range(100):
                 particle1_group.append(
                     [[player.rect.x + 30 * player.direction, player.rect.y + 20 + random.randint(-30, 10)],
@@ -578,6 +598,7 @@ while IN_THE_SPACE:
             player.is_alive = False
             player_moving_right = player_moving_left = screen_scroll = False
         elif pygame.sprite.spritecollideany(player2, laser_group):
+            dead_aud.play()
             for i in range(100):
                 particle1_group.append(
                     [[player2.rect.x + 30 * player2.direction, player2.rect.y + 20 + random.randint(-30, 10)],
@@ -586,14 +607,14 @@ while IN_THE_SPACE:
             player2.is_alive = False
             player2_moving_right = player2_moving_left = screen_scroll = False
 
-        if player2.rect.x <= 0 or player2.rect.x >= screen_width():
+        if (player2.rect.x <= 0 or player2.rect.x >= screen_width()) and player2.is_alive:
+            dead_aud.play()
             for i in range(100):
                 particle1_group.append(
                     [[player2.rect.x, player2.rect.y + random.randint(-30, 10)], [random.randint(0, 30) / 10 - 2, -1],
                      random.randint(4, 7), 20, (60, 20, 20), (220, 20, 60)])
             player2.rect.y -= 1000
             player2.is_alive = False
-
         entrance.draw()
         # Entrance behavior
         if entrance.update():
@@ -630,9 +651,13 @@ while IN_THE_SPACE:
             main = True
 
         if start_fade_sig == 1:
+            pygame.mixer.music.fadeout(800)
             fading = True
+
         if start_fade_sig == 2:
+            draw_text("Loading", font, RED, 30, screen_height() - 40)
             if fade_out.fade():
+                bg_music(2)
                 fading = False
                 fade_out.fade_counter = 0
                 start_fade_sig = 0
@@ -698,6 +723,7 @@ while IN_THE_SPACE:
         if start_fade_sig == 1 and fade_in.fade():
             fade_in.fade_counter = 0
             start_fade_sig = 2
+            pygame.mixer.music.fadeout(800)
             main = False
             for i in range(16):
                 r = [-1] * COLS
@@ -705,10 +731,14 @@ while IN_THE_SPACE:
             pickle_in = open(f'Levels/levels_data/level{LEVEL}_data', 'rb')
             map_data = pickle.load(pickle_in)
             pickle_in.close()
+            group_clear()
             map = Map()
             player, player2, entrance = map.process_data(map_data)
+
         if start_fade_sig == 2:
+            draw_text("Loading", font, RED, 30, screen_height() - 40)
             if fade_out.fade():
+                bg_music(1)
                 fading = False
                 fade_out.fade_counter = 0
                 start_fade_sig = 0
