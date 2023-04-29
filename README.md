@@ -29,3 +29,13 @@ existing one for adjustment! When clicking save, the editor will check for overw
 not work if you didn't use 'toggle' to bind them. See the examples below:  
   
 ![image](https://github.com/Hmc-1209/InTheSpace/blob/develop/imgs/markdown/level_editor.png)  
+
+
+### Summary:
+Feel free play on this pygame project! I made this just for practicing OOP concepts, and I'll put those references below, 
+hope it's bringing fun to you guys!
+
+---
+### References
+* LevelEditor - https://www.youtube.com/watch?v=xYhniILN6Ls
+* Particles - https://www.youtube.com/watch?v=NGFk44fY0O4
