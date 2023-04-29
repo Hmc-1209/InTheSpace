@@ -28,4 +28,4 @@ You can also edit your own level by the level editor! Open the level_editor.py, 
 existing one for adjustment! When clicking save, the editor will check for overwrite and new create options. Lasers will 
 not work if you didn't use 'toggle' to bind them. See the examples below:  
   
-<img src="https://github.com/Hmc-1209/InTheSpace/blob/develop/imgs/markdown/level_editor.gif" width="70%" height="60%">
+<img src="https://github.com/Hmc-1209/InTheSpace/blob/develop/imgs/markdown/level_editor.gif">
