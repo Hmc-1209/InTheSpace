@@ -13,11 +13,9 @@ If the leader dies, then red one will become the new leader. (Screen scroll will
 
 
 ### Game play:
-<table>
-<tb>
 Try to reach the end point at every level. Do not reach the laser, 
 and if the red character reaches the edge because of scrolling, it will die, but normally you can't walk out the edge.
 You can switch to the level you want to play, and the way to stop it is reaching the last end point in the last 
-level.</tb> 
-<tb><img src="https://github.com/Hmc-1209/InTheSpace/blob/develop/imgs/markdown/laser.gif" width="30%" height="40%"></tb>
-</table>
+level.  
+<img src="https://github.com/Hmc-1209/InTheSpace/blob/develop/imgs/markdown/laser.gif" width="30%" height="40%"> 
+<img src="https://github.com/Hmc-1209/InTheSpace/blob/develop/imgs/markdown/entrance.gif" width="30%" height="40%"> 
