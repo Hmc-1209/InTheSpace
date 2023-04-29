@@ -1,6 +1,6 @@
 ![image](https://github.com/Hmc-1209/InTheSpace/blob/develop/imgs/markdown/title.png)  
 <h2 style="text-align: center">Python game Development</h2>
-<hr>
+---
 ### Game description:  
 This is a python game created using pygame. It has implemented OOP concept.  
 The game is easy puzzle game. It contains two players, blue one would be the leader.  
