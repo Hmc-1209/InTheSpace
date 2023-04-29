@@ -18,6 +18,14 @@ and if the red character reaches the edge because of scrolling, it will die, but
 You can switch to the level you want to play, and the way to stop it is reaching the last end point in the last 
 level.  
   
-<img src="https://github.com/Hmc-1209/InTheSpace/blob/develop/imgs/markdown/laser.gif" width="30%" height="40%"> &ensp;
-<img src="https://github.com/Hmc-1209/InTheSpace/blob/develop/imgs/markdown/entrance.gif" width="30%" height="40%"> &ensp;
-<img src="https://github.com/Hmc-1209/InTheSpace/blob/develop/imgs/markdown/mv_platform.gif" width="30%" height="40%">
+<img src="https://github.com/Hmc-1209/InTheSpace/blob/develop/imgs/markdown/laser.gif" width="30%" height="30%"> &ensp;
+<img src="https://github.com/Hmc-1209/InTheSpace/blob/develop/imgs/markdown/entrance.gif" width="30%" height="30%"> &ensp;
+<img src="https://github.com/Hmc-1209/InTheSpace/blob/develop/imgs/markdown/mv_platform.gif" width="30%" height="30%">  
+
+
+### Edit your own level:  
+You can also edit your own level by the level editor! Open the level_editor.py, and create a brand-new map, or load an 
+existing one for adjustment! When clicking save, the editor will check for overwrite and new create options. Lasers will 
+not work if you didn't use 'toggle' to bind them. See the examples below:  
+  
+<img src="https://github.com/Hmc-1209/InTheSpace/blob/develop/imgs/markdown/level_editor.gif" width="70%" height="60%">
