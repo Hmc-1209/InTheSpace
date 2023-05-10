@@ -26,7 +26,7 @@ clock = pygame.time.Clock()
 FPS = 70
 
 # ------------------------ Game variables ------------------------
-GRAVITY = 0.75
+GRAVITY = 1
 ROWS = 16
 BLOCK_SIZE = SCREEN_HEIGHT // ROWS
 BLOCK_TYPES = len(os.listdir("imgs/blocks"))
@@ -177,11 +177,11 @@ class Character(pygame.sprite.Sprite):
                 self.flip = False
                 self.direction = 1
             if self.jump and not self.in_air:
-                self.vel_y = -12
+                self.vel_y = -17
                 self.jump = False
                 self.in_air = True
 
-            self.vel_y += GRAVITY
+            self.vel_y += GRAVITY * 1.3
             if self.vel_y > 10:
                 self.vel_y = 10
             dy += self.vel_y
@@ -284,7 +284,8 @@ class Laser(pygame.sprite.Sprite):
         self.rect.x += screen_scroll
 
     def draw(self):
-        screen.blit(self.image, self.rect)
+        if 0 - BLOCK_SIZE < self.rect.x < SCREEN_WIDTH + BLOCK_SIZE:
+            screen.blit(self.image, self.rect)
 
 
 class Toggle(pygame.sprite.Sprite):
