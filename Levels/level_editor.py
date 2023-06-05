@@ -245,9 +245,9 @@ while run:
 
     # scroll the map
     if scroll_left:
-        scroll -= 5 * scroll_speed
+        scroll -= 1 * scroll_speed
     if scroll_right:
-        scroll += 5 * scroll_speed
+        scroll += 1 * scroll_speed
     if scroll < 0:
         scroll = 0
     if scroll > MAX_COLUMNS * BLOCK_SIZE - SCREEN_WIDTH:
@@ -366,7 +366,7 @@ while run:
             if event.key == pygame.K_RIGHT:
                 scroll_right = True
             if event.key == pygame.K_RSHIFT:
-                scroll_speed = 3
+                scroll_speed = 1.5
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_LEFT:
                 scroll_left = False

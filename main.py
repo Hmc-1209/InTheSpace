@@ -458,8 +458,8 @@ class Map:
                 toggle_group.add(toggle)
 
         # Generating player and return
-        player = Character(self.playerX, self.playerY, 1, 7, 'player', 5)
-        player2 = Character(self.player2X, self.player2Y, 1, 7, 'player2', 5)
+        player = Character(self.playerX, self.playerY, 1, 5, 'player', 5)
+        player2 = Character(self.player2X, self.player2Y, 1, 5, 'player2', 5)
         return player, player2, entrance
 
     def draw(self):
